@@ -25,7 +25,7 @@ mouseClick = False
 mouseX = -1
 mouseY = -1
 
-programPath = "/home/marculonis/Desktop/main-python/movieProj/"
+programPath = "/home/marculonis/Desktop/projects/MovieLib_Desktop/"
 path = "/media/marculonis/""My Passport""/""Filmy"""
 
 dataFiles = os.listdir(programPath+"movieData/")
@@ -258,11 +258,11 @@ def winButton(img, text, x, y, sizeX=0, sizeY=0, hover=False, clicked=False, val
             sortImages(False,sortCount)
 
         elif(value=='vlc'):
-            #print(mName)
-            print('vlc -fd "{}/{}"'.format(path,mName.split('@')[0]))
-            
             #CVLC = vlc without interface
             #X VLC is better
+
+            window.minimize()
+
             os.system('/snap/bin/vlc -fd "{}/{}"'.format(path,mName.split('@')[0]))
 
     if(text != ""):
