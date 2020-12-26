@@ -4,6 +4,7 @@ import os
 import sys
 import tqdm
 import time
+import readline
 
 import urllib
 import urllib.request as req
@@ -11,6 +12,12 @@ from bs4 import BeautifulSoup as BS
 
 import pyglet
 from pyglet.gl import *
+
+programPath = "/home/marculonis/Desktop/Projects/MovieLib_Desktop/"
+path = "/media/marculonis/My Passport/Filmy"
+
+# args section
+args = sys.argv
 
 glEnable(GL_BLEND)
 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -24,9 +31,6 @@ sortCount = 0
 mouseClick = False
 mouseX = -1
 mouseY = -1
-
-programPath = "/home/marculonis/Desktop/projects/MovieLib_Desktop/"
-path = "/media/marculonis/""My Passport""/""Filmy"""
 
 dataFiles = os.listdir(programPath+"movieData/")
 fileNames = [x.rsplit('_',1)[0] for x in dataFiles]
@@ -75,9 +79,9 @@ def webScrape(actName):
     final = fFind.find("a")["href"]
     
     page = req.urlopen("https://www.imdb.com/{}".format(final))
-    print(_name)
+    # print(_name)
     
-    print(final)
+    # print(final)
     soup = BS(page, 'html.parser')
 
     poster = soup.find(class_="poster")
@@ -297,6 +301,14 @@ def on_key_press(key,mod):
             debugLines = False
         else:
             debugLines = True
+
+@window.event
+def on_mouse_scroll(x, y, scroll_x, scroll_y):
+    global scrollY
+    scrollY += -50*scroll_y
+    if (scrollY < 0):
+        scrollY = 0
+        
             
 @window.event
 def on_draw():
@@ -391,14 +403,26 @@ nFiles.remove(nFiles[0])
 
 #Scrape web with for pictures
 for item in tqdm.tqdm(range(len(nFiles))):
-    try:
-        webScrape(nFiles[item])
-    except IndexError:
-        print("NAME ERROR: {} -->> SKIPPED".format(nFiles[item]))
-    except urllib.error.URLError:
-        print("NET ERROR: possibly networking issue\n{} -->> SKIPPED".format(nFiles[item]))
-    except:
-        print("UNKNOWN ERROR: {} -->> SKIPPED".format(nFiles[item]))
+    while True:
+        try:
+            webScrape(nFiles[item])
+            break
+        except IndexError:
+            # print("NAME ERROR: {} -->> SKIPPED".format(nFiles[item]))
+            print("NAME ERROR: {}\n".format(nFiles[item]))
+
+            readline.set_startup_hook(lambda: readline.insert_text(nFiles[item]))
+            nName = input("New name: ")
+            readline.set_startup_hook()
+            os.system("/bin/mv '{}/{}' '{}/{}'".format(path,nFiles[item],path,nName))
+            nFiles[item] = nName
+
+        except urllib.error.URLError:
+            print("NET ERROR: possibly networking issue\n{} -->> SKIPPED".format(nFiles[item]))
+            break
+        except:
+            print("UNKNOWN ERROR: {} -->> SKIPPED".format(nFiles[item]))
+            break
 
 #Load all images as textures before start
 loadImages()
