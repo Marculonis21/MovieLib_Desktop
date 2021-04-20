@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-import os 
+import os
 import sys
 import tqdm
-import time
+# import time
 import readline
 
 import urllib
@@ -36,7 +36,6 @@ dataFiles = os.listdir(programPath+"movieData/")
 fileNames = [x.rsplit('_',1)[0] for x in dataFiles]
 imageList = {}
 menuIcons = {}
-
 
 def webScrape(actName):
     name = actName.split(';')
@@ -226,7 +225,7 @@ def winButton(img, text, x, y, sizeX=0, sizeY=0, hover=False, clicked=False, val
         drawImage(img, x, y, 0.5)
     else:
         drawImage(img, x, y, 0.9)
-    
+
     global abcSort, sortCount
     if(value=='abcsort'):
         if(abcSort):
@@ -308,8 +307,7 @@ def on_mouse_scroll(x, y, scroll_x, scroll_y):
     scrollY += -50*scroll_y
     if (scrollY < 0):
         scrollY = 0
-        
-            
+
 @window.event
 def on_draw():
     global scrollY,debugLfines,mouseX,mouseY,mouseClick,sortCount
@@ -390,7 +388,7 @@ def on_draw():
 
 
 #Look through PATH and get all the movies with ending
-try:    
+try:
     _files = findFiles(path, ["mkv","avi","mp4"], False)
 except FileNotFoundError:
     print("PATH ERROR: {} -- possibly not found".format(path))
