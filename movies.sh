@@ -21,6 +21,7 @@ WIDTH=$(tput cols)
 HEIGHT=$(tput lines)
 
 SELECTED=0
+SELECTED_PATH=""
 
 OIFS="$IFS"
 IFS=$'\n'
@@ -40,12 +41,13 @@ _EOF_
     tput cup "4" "0"
     
     counter=0
-    for file in $(find ./movieData/* | head -n 20 | cut -d"/" -f3); do 
-        file=$(echo "$file" | cut -d";" -f1)
+    for file in $(find ./movieData/* | head -n 20 ); do 
+        path="$file"
+        file=$(echo "$file" | cut -d"/" -f3 | cut -d";" -f1)
         if [ $counter -eq $SELECTED ]; then
             # echo -n "$FG_BLACK$BG_BLUE"
             text="${FG_BLACK}${BG_BLUE}$file${RESET}"
-
+            SELECTED_PATH="$path"
         else
             # echo -n $FG_BLUE
             text="${FG_BLUE}$file${RESET}"
@@ -83,7 +85,8 @@ done
 
 # ueberzug layer --parser bash 0< <(
 #     declare -Ap add_command=([action]="add" [identifier]="example0" [x]="0"
-#     [y]="0" [path]="")
+#     [y]="0" [path]="./movieData/Red 2010;.avi@pic_Red 2010_7.0")
+#     sleep 5
 # )
 
 # ueberzug layer --parser bash 0< <(
