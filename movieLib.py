@@ -265,7 +265,6 @@ def winButton(img, text, x, y, sizeX=0, sizeY=0, hover=False, clicked=False, val
             #X VLC is better
 
             window.minimize()
-
             os.system('/snap/bin/vlc -fd "{}/{}"'.format(path,mName.split('@')[0]))
 
     if(text != ""):

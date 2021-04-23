@@ -3,18 +3,17 @@
 import os
 import sys
 import tqdm
-# import time
 import readline
 
 import urllib
 import urllib.request as req
 from bs4 import BeautifulSoup as BS
 
-programPath = "./"
+programPath = "/home/marculonis/Desktop/Projects/Python/MovieLib_Desktop"
 diskPath = "/media/marculonis/My Passport/Filmy"
-imagePaths = os.listdir(programPath+"movieData/")
+imagePaths = os.listdir(programPath+"/movieData/")
 
-dataFiles = os.listdir(programPath+"movieData/")
+dataFiles = os.listdir(programPath+"/movieData/")
 fileNames = [x.rsplit('_',1)[0] for x in dataFiles]
 
 def webScrape(actName):
@@ -67,7 +66,7 @@ def webScrape(actName):
     _score = soup.find(class_='ratingValue')
     score = _score.find("span").contents[0]
 
-    req.urlretrieve(img, programPath+"movieData/"+actName+"@pic_"+sName+"_"+score)
+    req.urlretrieve(img, programPath+"/movieData/"+actName+"@pic_"+sName+"_"+score)
 
 def findFiles(_dir, _ext, expand = True):
     found = ""
@@ -118,5 +117,3 @@ for item in tqdm.tqdm(range(len(nFiles))):
         except:
             print("UNKNOWN ERROR: {} -->> SKIPPED".format(nFiles[item]))
             break
-
-
