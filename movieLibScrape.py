@@ -2,6 +2,7 @@
 
 import os
 import sys
+import subprocess
 import tqdm
 import readline
 
@@ -14,34 +15,95 @@ diskPath = "/media/marculonis/My Passport/Filmy"
 imagePaths = os.listdir(programPath+"/movieData/")
 
 dataFiles = os.listdir(programPath+"/movieData/")
-fileNames = [x.rsplit('_',1)[0] for x in dataFiles]
+knownFiles = [x.split('@',1)[0] for x in dataFiles]
 
-def webScrape(actName):
-    name = actName.split(';')
-    name.pop()
-    sName = name[0]
+def getMovieData(fileName):
+    maxStringLenght = 60
+    audio = ""
+    subt = ""
+    duration = ""
+    winWidth = ""
+    winHeight = ""
 
-    if(actName+'@pic_'+sName in fileNames):
+    result = subprocess.run(['mediainfo', '-f', diskPath+"/"+fileName, '|', 'grep', 'List'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+    for line in result.split("\n"):
+        if(audio != "" and 
+           subt != "" and 
+           duration != "" and 
+           winHeight != "" and 
+           winWidth != "" ):
+            break
+
+        if(audio == "" and "Audio_Language_List" in line):
+            value = line.split(': ')[1]
+            if("/" in value):
+                value = value.replace(" / ", ", ")
+            if(len(value) > maxStringLenght): 
+                value = value[:maxStringLenght] + "..."
+            audio = value
+
+
+        elif(subt == "" and "Text_Language_List" in line):
+            value = line.split(': ')[1]
+            if("/" in value):
+                value = value.replace(" / ", ", ")
+            if(len(value) > maxStringLenght): 
+                value = value[:maxStringLenght] + "..."
+            subt = value
+
+
+        elif(duration == "" and "Duration" in line):
+            value = line.split(': ')[1]
+            if(":" in value):
+                h,m,s = value[:8].split(":")
+                h,m,s = int(h),int(m),int(s)
+                if(s > 30): 
+                    m+=1
+                if(m >= 60): 
+                    m-=60
+                    h+=1
+
+                duration = "{} h {} min".format(h,m)
+
+        elif(winWidth == "" and "Width" in line):
+            value = line.split(': ')[1]
+            winWidth = value
+        elif(winHeight == "" and "Height" in line):
+            value = line.split(': ')[1]
+            winHeight = value
+
+    return audio, subt, duration, winWidth, winHeight
+
+def webScrape(fileName):
+    #If already processed - skip
+    if(fileName in knownFiles):
         return
 
-    s = sName[:len(sName)-4] + "(" + sName[len(sName)-4:] + ")"
+    #THE ONE THING YOU DON'T WANT TO SEE
+    if("@" in fileName):
+        raise IndexError
 
-    xxx = list(s)
-    for i in range(len(xxx)):
-        if(xxx[i] == ' '):
-            xxx[i] = '+'
-        if(xxx[i] == '&'):
-            xxx[i] = 'and'
+    #Get name from movie file and change to url string
+    sName = fileName.split(';')[0] 
+    
+    sName = sName[:len(sName)-4] + "(" + sName[len(sName)-4:] + ")"
 
-    _name = ''.join(xxx)
+    urlVersion = list(sName)
+    for i in range(len(urlVersion)):
+        if(urlVersion[i] == ' '):
+            urlVersion[i] = '+'
+        if(urlVersion[i] == '&'):
+            urlVersion[i] = 'and'
+
+    urlName = ''.join(urlVersion)
 
     #https://www.imdb.com/find?q={}&s=tt&ttype=ft
 
     #1PAGE
-    page = req.urlopen("https://www.imdb.com/find?q={}&s=tt&ttype=ft".format(_name))
+    page = req.urlopen("https://www.imdb.com/find?q={}&s=tt&ttype=ft".format(urlName))
     soup = BS(page, 'html.parser')
 
-    #Find right section ("title"/"actor")
+    #Find right section ("title")
     fSection = soup.find_all(class_='findSection')
     sel = 0
     for section in range(len(fSection)):
@@ -59,6 +121,7 @@ def webScrape(actName):
     page = req.urlopen("https://www.imdb.com/{}".format(final))
     soup = BS(page, 'html.parser')
 
+    ###POSTER
     poster = soup.find(class_="poster")
     img = poster.find("img")["src"]
 
@@ -66,7 +129,20 @@ def webScrape(actName):
     _score = soup.find(class_='ratingValue')
     score = _score.find("span").contents[0]
 
-    req.urlretrieve(img, programPath+"/movieData/"+actName+"@pic_"+sName+"_"+score)
+    audio, subt, duration, width, height = getMovieData(fileName)
+    
+    #FILEFORMAT_
+    #<movieDataProjectPath>/<full orig name>@<score>@<audio>@<subt>@<duration>@<width>x<height>@.mlf
+    path = "{}/movieData/{}@{}@{}@{}@{}@{}x{}@.mlf".format(programPath,
+                                                           fileName,
+                                                           score,
+                                                           audio,
+                                                           subt,
+                                                           duration,
+                                                           width,
+                                                           height)
+
+    req.urlretrieve(img, path)
 
 def findFiles(_dir, _ext, expand = True):
     found = ""
@@ -102,7 +178,6 @@ for item in tqdm.tqdm(range(len(nFiles))):
             webScrape(nFiles[item])
             break
         except IndexError:
-            # print("NAME ERROR: {} -->> SKIPPED".format(nFiles[item]))
             print("NAME ERROR: {}\n".format(nFiles[item]))
 
             readline.set_startup_hook(lambda: readline.insert_text(nFiles[item]))
@@ -114,6 +189,9 @@ for item in tqdm.tqdm(range(len(nFiles))):
         except urllib.error.URLError:
             print("NET ERROR: possibly networking issue\n{} -->> SKIPPED".format(nFiles[item]))
             break
-        except:
-            print("UNKNOWN ERROR: {} -->> SKIPPED".format(nFiles[item]))
-            break
+        except KeyboardInterrupt:
+            print("KEYBOARD INTERRUPT")
+            sys.exit(0)
+        # except:
+        #     print("UNKNOWN ERROR: {} -->> SKIPPED".format(nFiles[item]))
+        #     break

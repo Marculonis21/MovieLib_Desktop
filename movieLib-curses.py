@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-
 from enum import Enum
 from enum import IntEnum
 
 import curses as C
 import os
+import random
 import sys
 import time
 import ueberzug.lib.v0 as ueberzug
@@ -18,16 +18,6 @@ if(len(sys.argv) > 1):
         os.system("python3 "+PROJECT_PATH+"/movieLibScrape.py")
 else:
     os.system("python3 "+PROJECT_PATH+"/movieLibScrape.py")
-
-
-HEADER = [
-"███╗   ███╗ ██████╗ ██╗   ██╗██╗███████╗███████╗",
-"████╗ ████║██╔═══██╗██║   ██║██║██╔════╝██╔════╝",
-"██╔████╔██║██║   ██║██║   ██║██║█████╗  ███████╗",
-"██║╚██╔╝██║██║   ██║╚██╗ ██╔╝██║██╔══╝  ╚════██║",
-"██║ ╚═╝ ██║╚██████╔╝ ╚████╔╝ ██║███████╗███████║",
-"╚═╝     ╚═╝ ╚═════╝   ╚═══╝  ╚═╝╚══════╝╚══════╝",
-]
 
 NAMES_START_OFFSET = 8
 NAMES_MAX_COUNT = 40
@@ -53,20 +43,32 @@ class Sorts(Enum):
 
 class Movie():
     def __init__(self, path):
-        name_string = path.split(";")[0]
-        attr_string = path.split(";")[1]
-
         self.path = PROJECT_PATH+"/movieData/"+path
         self.discPath = path.split('@')[0]
 
+        name_string = path.split(";")[0]
+        attr_string = path.split(";")[1]
+
         self.name = name_string[:-5]
         self.year = name_string[-4:]
-        self.resolution = ""
-        self.languages = [""]
-        self.subtitles = [""]
-        self.duration = ""
-        self.score = float(attr_string[-3:])
 
+        #<movieDataProjectPath>/<full origname;>@<score>@<audio>@<subt>@<duration>@<width>x<height>@.mlf
+        attr_string = attr_string.split('@')
+        self.score = float(attr_string[1])
+        self.languages = attr_string[2].split(", ")
+        self.subtitles = attr_string[3].split(", ")
+        self.duration = attr_string[4]
+        self.resolution = attr_string[5]
+
+        if(len(self.languages) > 4):
+            _len = len(self.languages)
+            self.languages = self.languages[:4]
+            self.languages.append("(...)")
+
+        if(len(self.subtitles) > 4):
+            _len = len(self.subtitles)
+            self.subtitles = self.subtitles[:4]
+            self.subtitles.append("...")
 
     def searchFilter(self, sFilter):
         return (sFilter.lower() in self.name.lower())
@@ -105,6 +107,8 @@ def main():
     selected = 0
     firstNameIndexOffset = 0
     searchText = ""
+    HEADER = random.choice(HEADERS)
+    NAMES_START_OFFSET = len(HEADER)+2
 
     movies = []
     for file in os.listdir(PROJECT_PATH+"/movieData/"):
@@ -128,8 +132,12 @@ def main():
 
                 ################################################################ UI
 
-                for i in range(len(HEADER)):
-                    win.addstr(1+i, 2, HEADER[i], C.color_pair(Colors.DEFAULT))
+                if(rows < 35):
+                    NAMES_START_OFFSET = 1
+                else:
+                    for i in range(len(HEADER)):
+                        win.addstr(1+i, 2, HEADER[i], C.color_pair(Colors.DEFAULT))
+                    NAMES_START_OFFSET = len(HEADER)+2
 
                 for i in range(NAMES_START_OFFSET, rows-2):
                     win.addstr(i, PICS_LINE, "▍", C.color_pair(Colors.DEFAULT))
@@ -155,7 +163,6 @@ def main():
                 ################################################################ NAMES
 
 
-                ATTRIB_OFFSET = min(28, rows-10)
                 NAMES_MAX_COUNT = rows - NAMES_START_OFFSET - 3
                 firstNameIndexOffset = max(0,
                                            min((len(movies_drawlist)-1)-NAMES_MAX_COUNT,
@@ -188,9 +195,11 @@ def main():
                         with c.lazy_drawing:
                             showImg.path = path
                             showImg.width = cols - PICS_LINE - 3
-                            showImg.height = min(18, rows//2)
+                            showImg.height = min(18, rows//2-3)
                             showImg.x = PICS_LINE + 2
+                            showImg.y = NAMES_START_OFFSET
 
+                        ATTRIB_OFFSET = min(NAMES_START_OFFSET+showImg.height+1, rows-10)
                         win.addstr(ATTRIB_OFFSET+0, PICS_LINE + 2,
                                    "Year: {}".format(year),
                                     C.color_pair(Colors.DEFAULT))
@@ -203,12 +212,30 @@ def main():
                         win.addstr(ATTRIB_OFFSET+3, PICS_LINE + 2,
                                    "Duration: {}".format(duration),
                                     C.color_pair(Colors.DEFAULT))
+                        # win.addstr(ATTRIB_OFFSET+4, PICS_LINE + 2,
+                        #            "Languages: {}".format(languages),
+                        #             C.color_pair(Colors.DEFAULT))
+                        # win.addstr(ATTRIB_OFFSET+5, PICS_LINE + 2,
+                        #            "Subtitles: {}".format(subtitles),
+                        #             C.color_pair(Colors.DEFAULT))
+
+                        yOffset = 0
                         win.addstr(ATTRIB_OFFSET+4, PICS_LINE + 2,
-                                   "Languages: {}".format(*languages),
-                                    C.color_pair(Colors.DEFAULT))
-                        win.addstr(ATTRIB_OFFSET+5, PICS_LINE + 2,
-                                   "Subtitles: {}".format(*subtitles),
-                                    C.color_pair(Colors.DEFAULT))
+                                   "Languages:",
+                                   C.color_pair(Colors.DEFAULT))
+                        for lang in range(len(languages)):
+                            win.addstr(ATTRIB_OFFSET+4+lang, PICS_LINE + 13,
+                                       "{}".format(languages[lang]),
+                                       C.color_pair(Colors.DEFAULT))
+                            yOffset += 1
+
+                        win.addstr(ATTRIB_OFFSET+4+yOffset, PICS_LINE + 2,
+                                   "Subtitles:",
+                                   C.color_pair(Colors.DEFAULT))
+                        for sub in range(len(subtitles)):
+                            win.addstr(ATTRIB_OFFSET+4+yOffset+sub, PICS_LINE + 13,
+                                       "{}".format(subtitles[sub]),
+                                       C.color_pair(Colors.DEFAULT))
 
                     else:
                         win.addstr(yPos, xPos,
@@ -267,8 +294,8 @@ def main():
                     movies_drawlist = [movie for movie in movies if movie.searchFilter(searchText)]
 
                     if(SORT == Sorts.ABC):
-                        movies_drawlist = sorted(movies_drawlist, key=lambda x: x.score, reverse=True) # ABC sort default
-                    else: movies_drawlist = sorted(movies_drawlist, key=lambda x: x.name) # ABC sort default
+                        movies_drawlist = sorted(movies_drawlist, key=lambda x: x.name) # ABC sort default
+                    else: movies_drawlist = sorted(movies_drawlist, key=lambda x: x.score, reversed=True) # ABC sort default
 
 
                 win.refresh()
@@ -276,6 +303,67 @@ def main():
     except KeyboardInterrupt:
         pass
     C.endwin()
+
+HEADERS = [[
+"███╗   ███╗ ██████╗ ██╗   ██╗██╗███████╗███████╗",
+"████╗ ████║██╔═══██╗██║   ██║██║██╔════╝██╔════╝",
+"██╔████╔██║██║   ██║██║   ██║██║█████╗  ███████╗",
+"██║╚██╔╝██║██║   ██║╚██╗ ██╔╝██║██╔══╝  ╚════██║",
+"██║ ╚═╝ ██║╚██████╔╝ ╚████╔╝ ██║███████╗███████║",
+"╚═╝     ╚═╝ ╚═════╝   ╚═══╝  ╚═╝╚══════╝╚══════╝"],[
+" ___ ___   ___   __ __  ____    ___  _____",
+"|   |   | /   \ |  |  ||    |  /  _]/ ___/",
+"| _   _ ||     ||  |  | |  |  /  [_(   \_ ",
+"|  \_/  ||  O  ||  |  | |  | |    _]\__  |",
+"|   |   ||     ||  :  | |  | |   [_ /  \ |",
+"|   |   ||     | \   /  |  | |     |\    |",
+"|___|___| \___/   \_/  |____||_____| \___|"],[
+" _______  _______          _________ _______  _______ ",
+"(       )(  ___  )|\     /|\__   __/(  ____ \(  ____ \\",
+"| () () || (   ) || )   ( |   ) (   | (    \/| (    \/",
+"| || || || |   | || |   | |   | |   | (__    | (_____ ",
+"| |(_)| || |   | |( (   ) )   | |   |  __)   (_____  )",
+"| |   | || |   | | \ \_/ /    | |   | (            ) |",
+"| )   ( || (___) |  \   /  ___) (___| (____/\/\____) |",
+"|/     \|(_______)   \_/   \_______/(_______/\_______)"],[
+
+" ███▄ ▄███▓ ▒█████   ██▒   █▓ ██▓▓█████   ██████ ",
+"▓██▒▀█▀ ██▒▒██▒  ██▒▓██░   █▒▓██▒▓█   ▀ ▒██    ▒ ",
+"▓██    ▓██░▒██░  ██▒ ▓██  █▒░▒██▒▒███   ░ ▓██▄   ",
+"▒██    ▒██ ▒██   ██░  ▒██ █░░░██░▒▓█  ▄   ▒   ██▒",
+"▒██▒   ░██▒░ ████▓▒░   ▒▀█░  ░██░░▒████▒▒██████▒▒",
+"░ ▒░   ░  ░░ ▒░▒░▒░    ░ ▐░  ░▓  ░░ ▒░ ░▒ ▒▓▒ ▒ ░",
+"░  ░      ░  ░ ▒ ▒░    ░ ░░   ▒ ░ ░ ░  ░░ ░▒  ░ ░",
+"░      ░   ░ ░ ░ ▒       ░░   ▒ ░   ░   ░  ░  ░  ",
+"       ░       ░ ░        ░   ░     ░  ░      ░  ",
+"                         ░                       "],[
+"::::    ::::   ::::::::  :::     ::: ::::::::::: :::::::::: :::::::: ",
+"+:+:+: :+:+:+ :+:    :+: :+:     :+:     :+:     :+:       :+:    :+:",
+"+:+ +:+:+ +:+ +:+    +:+ +:+     +:+     +:+     +:+       +:+       ",
+"+#+  +:+  +#+ +#+    +:+ +#+     +:+     +#+     +#++:++#  +#++:++#++",
+"+#+       +#+ +#+    +#+  +#+   +#+      +#+     +#+              +#+",
+"#+#       #+# #+#    #+#   #+#+#+#       #+#     #+#       #+#    #+#",
+"###       ###  ########      ###     ########### ########## ######## "],[
+"                                    ,,                 ",
+"`7MMM.     ,MMF'                    db                 ",
+"  MMMb    dPMM                                         ",
+"  M YM   ,M MM  ,pW\"Wq.`7M'   `MF'`7MM  .gP\"Ya  ,pP\"Ybd",
+"  M  Mb  M' MM 6W'   `Wb VA   ,V    MM ,M'   Yb 8I   `\"",
+"  M  YM.P'  MM 8M     M8  VA ,V     MM 8M\"\"\"\"\"\" `YMMMa.",
+"  M  `YM'   MM YA.   ,A9   VVV      MM YM.    , L.   I8",
+".JML. `'  .JMML.`Ybmd9'     W     .JMML.`Mbmmd' M9mmmP'"],[
+"ooo        ooooo                        o8o                    ",
+"`88.       .888'                        `\"'                    ",
+" 888b     d'888   .ooooo.  oooo    ooo oooo   .ooooo.   .oooo.o",
+" 8 Y88. .P  888  d88' `88b  `88.  .8'  `888  d88' `88b d88(  \"8",
+" 8  `888'   888  888   888   `88..8'    888  888ooo888 `\"Y88b. ",
+" 8    Y     888  888   888    `888'     888  888    .o o.  )88b",
+"o8o        o888o `Y8bod8P'     `8'     o888o `Y8bod8P' 8""888P'"],[
+"    e   e                         ,e,              ",
+"   d8b d8b     e88 88e  Y8b Y888P  \"   ,e e,   dP\"Y",
+"  e Y8b Y8b   d888 888b  Y8b Y8P  888 d88 88b C88b ",
+" d8b Y8b Y8b  Y888 888P   Y8b \"   888 888   ,  Y88D",
+"d888b Y8b Y8b  \"88 88\"     Y8P    888  \"YeeP\" d,dP "]]
 
 # ---------------------------------------------
 main()

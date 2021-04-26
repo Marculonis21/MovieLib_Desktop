@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup as BS
 import pyglet
 from pyglet.gl import *
 
-programPath = "/home/marculonis/Desktop/Projects/MovieLib_Desktop/"
+programPath = "/home/marculonis/Desktop/Projects/Python/MovieLib_Desktop/"
 path = "/media/marculonis/My Passport/Filmy"
 
 # args section
@@ -417,6 +417,9 @@ for item in tqdm.tqdm(range(len(nFiles))):
         except urllib.error.URLError:
             print("NET ERROR: possibly networking issue\n{} -->> SKIPPED".format(nFiles[item]))
             break
+        except KeyboardInterrupt:
+            print("KEYBOARD INTERRUPT")
+            sys.exit(0)
         except:
             print("UNKNOWN ERROR: {} -->> SKIPPED".format(nFiles[item]))
             break
