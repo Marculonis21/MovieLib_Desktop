@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 
+import curses as C
 from enum import Enum
 from enum import IntEnum
-
-import curses as C
 import os
 import random
 import sys
-import time
+
 import ueberzug.lib.v0 as ueberzug
 
 PROJECT_PATH = "/home/marculonis/Desktop/Projects/Python/MovieLib_Desktop"
 DISC_PATH = "/media/marculonis/My Passport/Filmy"
-
 if(len(sys.argv) > 1):
     if not (sys.argv[1] == "-debug"):
         os.system("python3 "+PROJECT_PATH+"/movieLibScrape.py")
@@ -61,12 +59,10 @@ class Movie():
         self.resolution = attr_string[5]
 
         if(len(self.languages) > 4):
-            _len = len(self.languages)
             self.languages = self.languages[:4]
             self.languages.append("(...)")
 
         if(len(self.subtitles) > 4):
-            _len = len(self.subtitles)
             self.subtitles = self.subtitles[:4]
             self.subtitles.append("...")
 
@@ -101,6 +97,8 @@ def main():
 
     win.clear()
     win.refresh()
+    win.border(0)
+    win.timeout(1000)
 
     MODE = Modes.NORMAL
     SORT = Sorts.ABC
@@ -212,12 +210,6 @@ def main():
                         win.addstr(ATTRIB_OFFSET+3, PICS_LINE + 2,
                                    "Duration: {}".format(duration),
                                     C.color_pair(Colors.DEFAULT))
-                        # win.addstr(ATTRIB_OFFSET+4, PICS_LINE + 2,
-                        #            "Languages: {}".format(languages),
-                        #             C.color_pair(Colors.DEFAULT))
-                        # win.addstr(ATTRIB_OFFSET+5, PICS_LINE + 2,
-                        #            "Subtitles: {}".format(subtitles),
-                        #             C.color_pair(Colors.DEFAULT))
 
                         yOffset = 0
                         win.addstr(ATTRIB_OFFSET+4, PICS_LINE + 2,
@@ -242,9 +234,14 @@ def main():
                                    "{:3.0f}: {}".format(idx+1, name),
                                    C.color_pair(Colors.DEFAULT))
 
+                win.refresh()
+
                 ################################################################ KEYS
 
-                key = chr(win.getch(0,0))
+                key = win.getch(0,0)
+                if(key == -1): continue
+                else: key = chr(key)
+
                 if(MODE == Modes.NORMAL):
                     if(key == 'j'): #MOVE DOWN
                         selected += 1
@@ -267,8 +264,9 @@ def main():
                             SORT = Sorts.ABC
                             movies_drawlist = sorted(movies_drawlist, key=lambda x: x.name) # ABC sort default
 
-                    elif(ord(key) == 10): #PLAY
-                        path = movies_drawlist[selected].Play()
+                    elif(ord(key) == 10): #ENTER #PLAY
+                        if(os.path.isdir(DISC_PATH)):
+                            path = movies_drawlist[selected].Play()
 
                     elif(key == "q" or key == "Q"): #QUIT 
                         break
@@ -297,9 +295,6 @@ def main():
                         movies_drawlist = sorted(movies_drawlist, key=lambda x: x.name) # ABC sort default
                     else: movies_drawlist = sorted(movies_drawlist, key=lambda x: x.score, reversed=True) # ABC sort default
 
-
-                win.refresh()
-
     except KeyboardInterrupt:
         pass
     C.endwin()
@@ -312,20 +307,20 @@ HEADERS = [[
 "██║ ╚═╝ ██║╚██████╔╝ ╚████╔╝ ██║███████╗███████║",
 "╚═╝     ╚═╝ ╚═════╝   ╚═══╝  ╚═╝╚══════╝╚══════╝"],[
 " ___ ___   ___   __ __  ____    ___  _____",
-"|   |   | /   \ |  |  ||    |  /  _]/ ___/",
-"| _   _ ||     ||  |  | |  |  /  [_(   \_ ",
-"|  \_/  ||  O  ||  |  | |  | |    _]\__  |",
-"|   |   ||     ||  :  | |  | |   [_ /  \ |",
-"|   |   ||     | \   /  |  | |     |\    |",
-"|___|___| \___/   \_/  |____||_____| \___|"],[
+"|   |   | /   \\ |  |  ||    |  /  _]/ ___/",
+"| _   _ ||     ||  |  | |  |  /  [_(   \\_ ",
+"|  \\_/  ||  O  ||  |  | |  | |    _]\\__  |",
+"|   |   ||     ||  :  | |  | |   [_ /  \\ |",
+"|   |   ||     | \\   /  |  | |     |\\    |",
+"|___|___| \\___/   \\_/  |____||_____| \\___|"],[
 " _______  _______          _________ _______  _______ ",
-"(       )(  ___  )|\     /|\__   __/(  ____ \(  ____ \\",
-"| () () || (   ) || )   ( |   ) (   | (    \/| (    \/",
+"(       )(  ___  )|\\     /|\\__   __/(  ____ \\(  ____ \\",
+"| () () || (   ) || )   ( |   ) (   | (    \\/| (    \\/",
 "| || || || |   | || |   | |   | |   | (__    | (_____ ",
 "| |(_)| || |   | |( (   ) )   | |   |  __)   (_____  )",
-"| |   | || |   | | \ \_/ /    | |   | (            ) |",
-"| )   ( || (___) |  \   /  ___) (___| (____/\/\____) |",
-"|/     \|(_______)   \_/   \_______/(_______/\_______)"],[
+"| |   | || |   | | \\ \\_/ /    | |   | (            ) |",
+"| )   ( || (___) |  \\   /  ___) (___| (____/\\/\\____) |",
+"|/     \\|(_______)   \\_/   \\_______/(_______/\\_______)"],[
 
 " ███▄ ▄███▓ ▒█████   ██▒   █▓ ██▓▓█████   ██████ ",
 "▓██▒▀█▀ ██▒▒██▒  ██▒▓██░   █▒▓██▒▓█   ▀ ▒██    ▒ ",

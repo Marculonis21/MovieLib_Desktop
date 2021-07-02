@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 import os
-import sys
+import readline  # type: ignore
 import subprocess
-import tqdm
-import readline
-
+import sys
 import urllib
 import urllib.request as req
+
 from bs4 import BeautifulSoup as BS
+import tqdm
 
 programPath = "/home/marculonis/Desktop/Projects/Python/MovieLib_Desktop"
 diskPath = "/media/marculonis/My Passport/Filmy"
@@ -27,8 +27,8 @@ def getMovieData(fileName):
 
     result = subprocess.run(['mediainfo', '-f', diskPath+"/"+fileName, '|', 'grep', 'List'], stdout=subprocess.PIPE).stdout.decode('utf-8')
     for line in result.split("\n"):
-        if(audio != "" and 
-           subt != "" and 
+        if(audio != "" and
+           subt != "" and
            duration != "" and 
            winHeight != "" and 
            winWidth != "" ):
