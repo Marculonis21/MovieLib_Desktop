@@ -216,6 +216,8 @@ def main():
                                    "Languages:",
                                    C.color_pair(Colors.DEFAULT))
                         for lang in range(len(languages)):
+                            if(ATTRIB_OFFSET+4+lang >= rows - 2):
+                                break
                             win.addstr(ATTRIB_OFFSET+4+lang, PICS_LINE + 13,
                                        "{}".format(languages[lang]),
                                        C.color_pair(Colors.DEFAULT))
@@ -225,6 +227,8 @@ def main():
                                    "Subtitles:",
                                    C.color_pair(Colors.DEFAULT))
                         for sub in range(len(subtitles)):
+                            if(ATTRIB_OFFSET+4+yOffset+sub >= rows - 2):
+                                break
                             win.addstr(ATTRIB_OFFSET+4+yOffset+sub, PICS_LINE + 13,
                                        "{}".format(subtitles[sub]),
                                        C.color_pair(Colors.DEFAULT))
@@ -293,7 +297,8 @@ def main():
 
                     if(SORT == Sorts.ABC):
                         movies_drawlist = sorted(movies_drawlist, key=lambda x: x.name) # ABC sort default
-                    else: movies_drawlist = sorted(movies_drawlist, key=lambda x: x.score, reversed=True) # ABC sort default
+                    else:
+                        movies_drawlist = sorted(movies_drawlist, key=lambda x: x.score, reverse=True) # ABC sort default
 
     except KeyboardInterrupt:
         pass
