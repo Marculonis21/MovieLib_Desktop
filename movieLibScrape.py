@@ -83,6 +83,9 @@ def webScrape(fileName):
     if("@" in fileName):
         raise IndexError
 
+    if not(";" in fileName):
+        raise IndexError
+
     #Get name from movie file and change to url string
     sName = fileName.split(';')[0] 
     
@@ -99,52 +102,57 @@ def webScrape(fileName):
 
     #https://www.imdb.com/find?q={}&s=tt&ttype=ft
 
-    #1PAGE
-    page = req.urlopen("https://www.imdb.com/find?q={}&s=tt&ttype=ft".format(urlName))
-    soup = BS(page, 'html.parser')
+    try:
+        #1PAGE
+        page = req.urlopen("https://www.imdb.com/find?q={}&s=tt&ttype=ft".format(urlName))
+        soup = BS(page, 'html.parser')
 
-    #Find right section ("title")
-    fSection = soup.find_all(class_='findSection')
-    sel = 0
-    for section in range(len(fSection)):
-        checkFind = fSection[section].find(class_='findSectionHeader')
-        if(checkFind.find('a')["name"] == "tt"):
-            sel = section
-            break
-        else:
-            pass
+        #Find right section ("title")
+        fSection = soup.find_all(class_='findSection')
+        sel = 0
+        for section in range(len(fSection)):
+            checkFind = fSection[section].find(class_='findSectionHeader')
+            if(checkFind.find('a')["name"] == "tt"):
+                sel = section
+                break
+            else:
+                pass
 
-    #findResults
-    fFind = fSection[sel].find(class_='findResult odd')
-    final = fFind.find("a")["href"]
+        fFind = fSection[sel].find(class_='findResult odd')
+        final = fFind.find("a")["href"]
 
-    page = req.urlopen("https://www.imdb.com/{}".format(final))
-    soup = BS(page, 'html.parser')
+        page = req.urlopen("https://www.imdb.com/{}".format(final))
+        soup = BS(page, 'html.parser')
 
-    ###POSTER
-    poster = soup.find(class_="poster")
-    img = poster.find("img")["src"]
+        ###POSTER
+        poster = soup.find(class_="poster")
+        img = poster.find("img")["src"]
 
-    ###SCORE
-    _score = soup.find(class_='ratingValue')
-    score = _score.find("span").contents[0]
+        ###SCORE
+        _score = soup.find(class_='AggregateRatingButton__RatingScore-sc-1ll29m0-1 iTLWoV')
+        score = _score.contents[0]
 
-    audio, subt, duration, width, height = getMovieData(fileName)
+        audio, subt, duration, width, height = getMovieData(fileName)
+        
+        #FILEFORMAT_
+        #<movieDataProjectPath>/<full orig name>@<score>@<audio>@<subt>@<duration>@<width>x<height>@.mlf
+        path = "{}/movieData/{}@{}@{}@{}@{}@{}x{}@.mlf".format(programPath,
+                                                            fileName,
+                                                            score,
+                                                            audio,
+                                                            subt,
+                                                            duration,
+                                                            width,
+                                                            height)
+
+        req.urlretrieve(img, path)
+
+    except:
+        raise ZeroDivisionError
+
     
-    #FILEFORMAT_
-    #<movieDataProjectPath>/<full orig name>@<score>@<audio>@<subt>@<duration>@<width>x<height>@.mlf
-    path = "{}/movieData/{}@{}@{}@{}@{}@{}x{}@.mlf".format(programPath,
-                                                           fileName,
-                                                           score,
-                                                           audio,
-                                                           subt,
-                                                           duration,
-                                                           width,
-                                                           height)
 
-    req.urlretrieve(img, path)
-
-def findFiles(_dir, _ext, expand = True):
+def findFiles(_dir, _ext, expand=True):
     found = ""
 
     for f in os.listdir(_dir):
@@ -192,6 +200,9 @@ for item in tqdm.tqdm(range(len(nFiles))):
         except KeyboardInterrupt:
             print("KEYBOARD INTERRUPT")
             sys.exit(0)
-        # except:
-        #     print("UNKNOWN ERROR: {} -->> SKIPPED".format(nFiles[item]))
-        #     break
+        except ZeroDivisionError:
+            print("PARSE ERROR: {} -->> SKIPPED".format(nFiles[item]))
+            break
+        except:
+            print("UNKNOWN ERROR: {} -->> SKIPPED".format(nFiles[item]))
+            break
