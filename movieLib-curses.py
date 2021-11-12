@@ -12,10 +12,10 @@ import ueberzug.lib.v0 as ueberzug
 PROJECT_PATH = "/home/marculonis/Desktop/Projects/Python/MovieLib_Desktop"
 DISC_PATH = "/media/marculonis/My Passport/Filmy"
 if(len(sys.argv) > 1):
-    if not (sys.argv[1] == "-debug"):
-        os.system("python3 "+PROJECT_PATH+"/movieLibScrape.py")
-else:
-    os.system("python3 "+PROJECT_PATH+"/movieLibScrape.py")
+    if (sys.argv[1] == "--reset"):
+        os.system("rm -rf "+PROJECT_PATH+"/movieData/*")
+
+os.system("python3 "+PROJECT_PATH+"/movieLibScrape.py")
 
 NAMES_START_OFFSET = 8
 NAMES_MAX_COUNT = 40

@@ -6,6 +6,7 @@ import subprocess
 import sys
 import urllib
 import urllib.request as req
+import logging
 
 from bs4 import BeautifulSoup as BS
 import tqdm
@@ -13,6 +14,7 @@ import tqdm
 programPath = "/home/marculonis/Desktop/Projects/Python/MovieLib_Desktop"
 diskPath = "/media/marculonis/My Passport/Filmy"
 imagePaths = os.listdir(programPath+"/movieData/")
+logging.basicConfig(filename='lastRun.log', filemode='w', format='%(levelname)s - %(message)s')
 
 dataFiles = os.listdir(programPath+"/movieData/")
 knownFiles = [x.split('@',1)[0] for x in dataFiles]
@@ -104,19 +106,21 @@ def webScrape(fileName):
 
     try:
         #1PAGE
-        page = req.urlopen("https://www.imdb.com/find?q={}&s=tt&ttype=ft".format(urlName))
+        # page =
+        # req.urlopen("https://www.imdb.com/find?q={}&s=tt&ttype=ft".format(urlName)) old
+        page = req.urlopen("https://www.imdb.com/find?q={}&s=tt&exact=true".format(urlName))
         soup = BS(page, 'html.parser')
 
         #Find right section ("title")
         fSection = soup.find_all(class_='findSection')
-        sel = 0
-        for section in range(len(fSection)):
-            checkFind = fSection[section].find(class_='findSectionHeader')
-            if(checkFind.find('a')["name"] == "tt"):
-                sel = section
-                break
-            else:
-                pass
+        # sel = 0
+        # for section in range(len(fSection)):
+        #     checkFind = fSection[section].find(class_='findSectionHeader')
+        #     if(checkFind.find('a')["name"] == "tt"):
+        #         sel = section
+        #         break
+        #     else:
+        #         pass
 
         fFind = fSection[sel].find(class_='findResult odd')
         final = fFind.find("a")["href"]
@@ -147,10 +151,10 @@ def webScrape(fileName):
 
         req.urlretrieve(img, path)
 
+    except KeyboardInterrupt:
+        raise KeyboardInterrupt
     except:
         raise ZeroDivisionError
-
-    
 
 def findFiles(_dir, _ext, expand=True):
     found = ""
@@ -196,13 +200,16 @@ for item in tqdm.tqdm(range(len(nFiles))):
 
         except urllib.error.URLError:
             print("NET ERROR: possibly networking issue\n{} -->> SKIPPED".format(nFiles[item]))
+            logging.warning("NET - SKIPPED - {}".format(nFiles[item]))
             break
         except KeyboardInterrupt:
             print("KEYBOARD INTERRUPT")
             sys.exit(0)
         except ZeroDivisionError:
             print("PARSE ERROR: {} -->> SKIPPED".format(nFiles[item]))
+            logging.error("PARSE - {}".format(nFiles[item]))
             break
         except:
             print("UNKNOWN ERROR: {} -->> SKIPPED".format(nFiles[item]))
+            logging.warning("UNKNOWN - {}".format(nFiles[item]))
             break
