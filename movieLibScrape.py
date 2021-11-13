@@ -99,6 +99,8 @@ def webScrape(fileName):
             urlVersion[i] = '+'
         if(urlVersion[i] == '&'):
             urlVersion[i] = 'and'
+        if(urlVersion[i] == '_'):
+            urlVersion[i] = ':'
 
     urlName = ''.join(urlVersion)
 
@@ -106,31 +108,30 @@ def webScrape(fileName):
 
     try:
         #1PAGE
-        # page =
         # req.urlopen("https://www.imdb.com/find?q={}&s=tt&ttype=ft".format(urlName)) old
         page = req.urlopen("https://www.imdb.com/find?q={}&s=tt&exact=true".format(urlName))
         soup = BS(page, 'html.parser')
 
         #Find right section ("title")
-        fSection = soup.find_all(class_='findSection')
-        # sel = 0
-        # for section in range(len(fSection)):
-        #     checkFind = fSection[section].find(class_='findSectionHeader')
-        #     if(checkFind.find('a')["name"] == "tt"):
-        #         sel = section
-        #         break
-        #     else:
-        #         pass
+        fList = soup.find(class_='findList')
 
-        fFind = fSection[sel].find(class_='findResult odd')
+        fFind = fList.find(class_='findResult odd')
+
         final = fFind.find("a")["href"]
 
-        page = req.urlopen("https://www.imdb.com/{}".format(final))
+        page = req.urlopen("https://www.imdb.com{}".format(final))
         soup = BS(page, 'html.parser')
 
         ###POSTER
-        poster = soup.find(class_="poster")
-        img = poster.find("img")["src"]
+        galeryURL = soup.find(class_='ipc-lockup-overlay ipc-focusable')["href"]
+        galeryPage = req.urlopen("https://www.imdb.com{}".format(galeryURL))
+        galeryPageSoup = BS(galeryPage, 'html.parser')
+
+        main = galeryPageSoup.find('main')
+        mediaViewer = main.find("div",attrs={"data-testid":"media-viewer"})
+        internalImgLocation = mediaViewer.find("div", class_='MediaViewerImagestyles__PortraitContainer-sc-1qk433p-2 iUyzNI')
+
+        img = internalImgLocation.find("img")["src"]
 
         ###SCORE
         _score = soup.find(class_='AggregateRatingButton__RatingScore-sc-1ll29m0-1 iTLWoV')
@@ -153,8 +154,8 @@ def webScrape(fileName):
 
     except KeyboardInterrupt:
         raise KeyboardInterrupt
-    except:
-        raise ZeroDivisionError
+    except AttributeError:
+        raise AttributeError
 
 def findFiles(_dir, _ext, expand=True):
     found = ""
@@ -205,7 +206,7 @@ for item in tqdm.tqdm(range(len(nFiles))):
         except KeyboardInterrupt:
             print("KEYBOARD INTERRUPT")
             sys.exit(0)
-        except ZeroDivisionError:
+        except AttributeError:
             print("PARSE ERROR: {} -->> SKIPPED".format(nFiles[item]))
             logging.error("PARSE - {}".format(nFiles[item]))
             break
