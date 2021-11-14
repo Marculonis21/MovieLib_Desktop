@@ -13,13 +13,22 @@ import tqdm
 
 programPath = "/home/marculonis/Desktop/Projects/Python/MovieLib_Desktop"
 diskPath = "/media/marculonis/My Passport/Filmy"
-imagePaths = os.listdir(programPath+"/movieData/")
-logging.basicConfig(filename='lastRun.log', filemode='w', format='%(levelname)s - %(message)s')
+logging.basicConfig(filename=programPath+'/lastRun.log', filemode='w', format='%(levelname)s - %(message)s')
+
+if not(os.path.isdir(programPath+"/movieData")):
+    os.system("mkdir "+programPath+"/movieData")
 
 dataFiles = os.listdir(programPath+"/movieData/")
-knownFiles = [x.split('@',1)[0] for x in dataFiles]
+knownFiles = [x.split('@',1)[0] for x in dataFiles if '@' in x]
 
-def getMovieData(fileName):
+dirFiles = os.listdir(programPath+"/movieData/Series/")
+for DIR in dirFiles:
+    if(os.path.isdir(programPath+"/movieData/Series/"+DIR)):
+        dirFiles = os.listdir(programPath+"/movieData/Series/"+DIR)
+        for df in dirFiles:
+            knownFiles.append(df.split('@',1)[0]);
+
+def getMovieData(fileName, series=False, seriesName=""):
     maxStringLenght = 60
     audio = ""
     subt = ""
@@ -27,7 +36,13 @@ def getMovieData(fileName):
     winWidth = ""
     winHeight = ""
 
-    result = subprocess.run(['mediainfo', '-f', diskPath+"/"+fileName, '|', 'grep', 'List'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+    dirText = ""
+    if(series):
+        dirText = diskPath+"/Series/"+seriesName+"/"+fileName
+    else:
+        dirText = diskPath+"/"+fileName
+
+    result = subprocess.run(['mediainfo', '-f', dirText, '|', 'grep', 'List'], stdout=subprocess.PIPE).stdout.decode('utf-8')
     for line in result.split("\n"):
         if(audio != "" and
            subt != "" and
@@ -76,79 +91,139 @@ def getMovieData(fileName):
 
     return audio, subt, duration, winWidth, winHeight
 
-def webScrape(fileName):
-    #If already processed - skip
-    if(fileName in knownFiles):
-        return
-
-    #THE ONE THING YOU DON'T WANT TO SEE
-    if("@" in fileName):
-        raise IndexError
-
-    if not(";" in fileName):
-        raise IndexError
-
+def tranformName(fileName, series=False, folderName=False):
     #Get name from movie file and change to url string
-    sName = fileName.split(';')[0] 
-    
-    sName = sName[:len(sName)-4] + "(" + sName[len(sName)-4:] + ")"
+    if not(folderName):
+        name = fileName.split(';')[0]
 
-    urlVersion = list(sName)
+        if(series):
+            name = name[name.find(']')+2:]
+
+    else:
+        name = fileName
+
+    name = name[:len(name)-4] + "(" + name[len(name)-4:] + ")"
+
+    urlVersion = list(name)
     for i in range(len(urlVersion)):
         if(urlVersion[i] == ' '):
             urlVersion[i] = '+'
         if(urlVersion[i] == '&'):
-            urlVersion[i] = 'and'
+            urlVersion[i] = '%26'
         if(urlVersion[i] == '_'):
             urlVersion[i] = ':'
 
     urlName = ''.join(urlVersion)
+    return urlName
 
-    #https://www.imdb.com/find?q={}&s=tt&ttype=ft
+def getWebData(urlName, series):
+    searchString = ""
+    if(series):
+        searchString = "https://www.imdb.com/find?q={}&s=tt".format(urlName)
+    else:
+        searchString = "https://www.imdb.com/find?q={}&s=tt&exact=true".format(urlName)
+
+    page = req.urlopen(searchString)
+    soup = BS(page, 'html.parser')
+
+    #Find right section ("title")
+    fList = soup.find(class_='findList')
+    fFind = fList.find(class_='findResult odd')
+    final = fFind.find("a")["href"]
+
+    page = req.urlopen("https://www.imdb.com{}".format(final))
+    soup = BS(page, 'html.parser')
+
+    ###POSTER
+    galeryURL = soup.find(class_='ipc-lockup-overlay ipc-focusable')["href"]
+    galeryPage = req.urlopen("https://www.imdb.com{}".format(galeryURL))
+    galeryPageSoup = BS(galeryPage, 'html.parser')
+
+    main = galeryPageSoup.find('main')
+    mediaViewer = main.find("div",attrs={"data-testid":"media-viewer"})
+    internalImgLocation = mediaViewer.find("div", class_='MediaViewerImagestyles__PortraitContainer-sc-1qk433p-2 iUyzNI')
+    if(internalImgLocation == None):
+        internalImgLocation = mediaViewer.find("div", class_='MediaViewerImagestyles__LandscapeContainer-sc-1qk433p-3 kXRNYt')
+
+    img = internalImgLocation.find("img")["src"]
+
+    ###SCORE
+    _score = soup.find("span",class_='AggregateRatingButton__RatingScore-sc-1ll29m0-1 iTLWoV')
+    if(_score != None):
+        score = _score.contents[0]
+    else:
+        score = ""
+
+    return img, score
+
+
+def webScrape(fileName, series=False, seriesName=""):
+    #If already processed - skip
+    if(fileName in knownFiles):
+        return
+    if(series and fileName==seriesName):
+        if(fileName+";" in knownFiles):
+            return
+
+
+    #THE ONE THING YOU DON'T WANT TO SEE
+    if("@" in fileName):
+        raise EOFError
+
+    if not(";" in fileName):
+        if(series and fileName == seriesName):
+            pass
+        else:
+            raise EOFError
+
+    if (series) and not (fileName[0] == '['):
+        if(fileName != seriesName):
+            raise EOFError
+
+    urlName = tranformName(fileName, series, fileName==seriesName)
 
     try:
-        #1PAGE
-        # req.urlopen("https://www.imdb.com/find?q={}&s=tt&ttype=ft".format(urlName)) old
-        page = req.urlopen("https://www.imdb.com/find?q={}&s=tt&exact=true".format(urlName))
-        soup = BS(page, 'html.parser')
+        img = ""
+        score = ""
+        audio = ""
+        subt = ""
+        duration = ""
+        width = ""
+        height = ""
 
-        #Find right section ("title")
-        fList = soup.find(class_='findList')
+        img, score = getWebData(urlName, series)
+        if(fileName != seriesName):
+            audio, subt, duration, width, height = getMovieData(fileName, series, seriesName)
 
-        fFind = fList.find(class_='findResult odd')
+        #FILEFORMAT:
+        #<movieDataProjectPath>/(series-name)/<full orig name>@<score>@<audio>@<subt>@<duration>@<width>x<height>@.mlf
+        if(series):
+            if not(os.path.isdir("{}/movieData/Series".format(programPath,seriesName))):
+                os.system("mkdir \"{}/movieData/Series/")
+            if not(os.path.isdir("{}/movieData/Series/{}".format(programPath,seriesName))):
+                os.system("mkdir \"{}/movieData/Series/{}\"".format(programPath,seriesName))
+            if(fileName==seriesName):
+                fileName+=";"
 
-        final = fFind.find("a")["href"]
+            path = "{}/movieData/Series/{}/{}@{}@{}@{}@{}@{}x{}@.mlf".format(programPath,
+                                                                             seriesName,
+                                                                             fileName,
+                                                                             score,
+                                                                             audio,
+                                                                             subt,
+                                                                             duration,
+                                                                             width,
+                                                                             height)
 
-        page = req.urlopen("https://www.imdb.com{}".format(final))
-        soup = BS(page, 'html.parser')
-
-        ###POSTER
-        galeryURL = soup.find(class_='ipc-lockup-overlay ipc-focusable')["href"]
-        galeryPage = req.urlopen("https://www.imdb.com{}".format(galeryURL))
-        galeryPageSoup = BS(galeryPage, 'html.parser')
-
-        main = galeryPageSoup.find('main')
-        mediaViewer = main.find("div",attrs={"data-testid":"media-viewer"})
-        internalImgLocation = mediaViewer.find("div", class_='MediaViewerImagestyles__PortraitContainer-sc-1qk433p-2 iUyzNI')
-
-        img = internalImgLocation.find("img")["src"]
-
-        ###SCORE
-        _score = soup.find(class_='AggregateRatingButton__RatingScore-sc-1ll29m0-1 iTLWoV')
-        score = _score.contents[0]
-
-        audio, subt, duration, width, height = getMovieData(fileName)
-        
-        #FILEFORMAT_
-        #<movieDataProjectPath>/<full orig name>@<score>@<audio>@<subt>@<duration>@<width>x<height>@.mlf
-        path = "{}/movieData/{}@{}@{}@{}@{}@{}x{}@.mlf".format(programPath,
-                                                            fileName,
-                                                            score,
-                                                            audio,
-                                                            subt,
-                                                            duration,
-                                                            width,
-                                                            height)
+        else:
+            path = "{}/movieData/{}@{}@{}@{}@{}@{}x{}@.mlf".format(programPath,
+                                                                   fileName,
+                                                                   score,
+                                                                   audio,
+                                                                   subt,
+                                                                   duration,
+                                                                   width,
+                                                                   height)
 
         req.urlretrieve(img, path)
 
@@ -174,43 +249,85 @@ def findFiles(_dir, _ext, expand=True):
 
 #Look through PATH and get all the movies with ending
 try:
-    _files = findFiles(diskPath, ["mkv","avi","mp4"], False)
+    movies = findFiles(diskPath, ["mkv","avi","mp4"], False)
+    series = findFiles(diskPath+"/Series", ["mkv","avi","mp4"], True)
 except FileNotFoundError:
     print("PATH ERROR: {} -- possibly not found".format(diskPath))
     quit()
 
-files = _files.split('\n')
-files.sort()
-nFiles = [x.split('/').pop() for x in files]
-nFiles.remove(nFiles[0])
+movieFiles = movies.split('\n')
+movieFiles.sort()
+allMovieFiles = [x.split('/').pop() for x in movieFiles]
+allMovieFiles.remove(allMovieFiles[0])
+allFiles = allMovieFiles
 
+seriesFiles = series.split('\n')
+seriesFiles.sort()
+allSeriesFiles = [x.split('/')[-2:] for x in seriesFiles]
+allSeriesFiles.remove(allSeriesFiles[0])
+
+preSeriesNames = series.split('\n')
+preSeriesNames.sort()
+preSeriesNames.remove(preSeriesNames[0])
+parsedSN = []
+for s in preSeriesNames:
+    sn = s.split("Series/")[1].split('/')[0]
+    if not(sn in parsedSN):
+        parsedSN.append(sn)
+
+for s in allSeriesFiles:
+    allFiles.append(s)
+
+for s in parsedSN:
+    allFiles.append([s,s])
+
+series = ""
+name = ""
 #Scrape web with for pictures
-for item in tqdm.tqdm(range(len(nFiles))):
+for item in tqdm.tqdm(range(len(allFiles))):
     while True:
         try:
-            webScrape(nFiles[item])
-            break
-        except IndexError:
-            print("NAME ERROR: {}\n".format(nFiles[item]))
+            file = allFiles[item]
+            if(len(file) != 2): # movies
+                name = file 
+                series = ""
+                webScrape(name)
+            else: # series
+                name = file[1]
+                series = file[0]
+                webScrape(name,True,series)
 
-            readline.set_startup_hook(lambda: readline.insert_text(nFiles[item]))
-            nName = input("New name: ")
-            readline.set_startup_hook()
-            os.system("/bin/mv '{}/{}' '{}/{}'".format(diskPath,nFiles[item],diskPath,nName))
-            nFiles[item] = nName
+            break
+        except EOFError:
+            print("NAME ERROR: {}\n".format(name))
+
+            try:
+                readline.set_startup_hook(lambda: readline.insert_text(name))
+                newName = input("New name: ")
+                readline.set_startup_hook()
+                if(series == ""):
+                    os.system("/bin/mv '{}/{}' '{}/{}'".format(diskPath,name,diskPath,newName))
+                    allFiles[item] = newName
+                else:
+                    os.system("/bin/mv '{}/Series/{}/{}' '{}/Series/{}/{}'".format(diskPath,series,name,diskPath,series,newName))
+                    allFiles[item][1] = newName
+
+            except KeyboardInterrupt:
+                print("\nName edit interrupted -->> SKIPPED")
+                break;
 
         except urllib.error.URLError:
-            print("NET ERROR: possibly networking issue\n{} -->> SKIPPED".format(nFiles[item]))
-            logging.warning("NET - SKIPPED - {}".format(nFiles[item]))
+            print("NET ERROR: possibly networking issue\n{} -->> SKIPPED".format(allFiles[item]))
+            logging.warning("NET - SKIPPED - {}".format(allFiles[item]))
             break
         except KeyboardInterrupt:
             print("KEYBOARD INTERRUPT")
             sys.exit(0)
         except AttributeError:
-            print("PARSE ERROR: {} -->> SKIPPED".format(nFiles[item]))
-            logging.error("PARSE - {}".format(nFiles[item]))
+            print("NOT FOUND ERROR: {} -->> SKIPPED".format(allFiles[item]))
+            logging.error("NOT FOUND - {}".format(allFiles[item]))
             break
         except:
-            print("UNKNOWN ERROR: {} -->> SKIPPED".format(nFiles[item]))
-            logging.warning("UNKNOWN - {}".format(nFiles[item]))
+            print("UNKNOWN ERROR: {} -->> SKIPPED".format(allFiles[item]))
+            logging.warning("UNKNOWN - {}".format(allFiles[item]))
             break

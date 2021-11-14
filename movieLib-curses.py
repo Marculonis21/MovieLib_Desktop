@@ -6,6 +6,8 @@ from enum import IntEnum
 import os
 import random
 import sys
+import copy
+import time
 
 import ueberzug.lib.v0 as ueberzug
 
@@ -40,19 +42,28 @@ class Sorts(Enum):
     SCORE = 2
 
 class Movie():
-    def __init__(self, path):
+    def __init__(self, path, inFolder=False):
         self.path = PROJECT_PATH+"/movieData/"+path
+
         self.discPath = path.split('@')[0]
+        if(inFolder):
+            path = path.split('/')[-1]
 
         name_string = path.split(";")[0]
         attr_string = path.split(";")[1]
 
         self.name = name_string[:-5]
+        if('_' in self.name):
+            self.name = self.name.replace('_', ':')
+
         self.year = name_string[-4:]
 
         #<movieDataProjectPath>/<full origname;>@<score>@<audio>@<subt>@<duration>@<width>x<height>@.mlf
         attr_string = attr_string.split('@')
-        self.score = float(attr_string[1])
+        if(attr_string[1] != ""):
+            self.score = float(attr_string[1])
+        else:
+            self.score = 0
         self.languages = attr_string[2].split(", ")
         self.subtitles = attr_string[3].split(", ")
         self.duration = attr_string[4]
@@ -72,6 +83,42 @@ class Movie():
     def Play(self):
         os.system('/usr/bin/vlc -fd "{}/{}"'.format(DISC_PATH,self.discPath))
 
+class Folder():
+    def __init__(self, path):
+        self.path = PROJECT_PATH+"/movieData/Series/"+path
+
+        self.name = path[:-5]
+        if('_' in self.name):
+            self.name = self.name.replace('_', ':')
+
+        self.year = path[-4:]
+
+        folderFiles = os.listdir()
+        self.folderMovies = []
+        self.attr_file = ""
+        for file in os.listdir(self.path):
+            if('[' in file):
+                self.folderMovies.append(Movie("Series/{} {}/{}".format(self.name, self.year, file), True))
+            else:
+                self.attr_file = file
+
+        if(self.attr_file != ""):
+            self.path = self.path+"/"+self.attr_file # PATH IS USED FOR IMG
+            attr_string = self.attr_file.split(";")[1].split('@')
+            self.score = float(attr_string[1])
+
+        self.languages = ""
+        self.subtitles = ""
+        self.duration = ""
+        self.resolution = ""
+        self.languages = ""
+        self.subtitles = ""
+
+    def searchFilter(self, sFilter):
+        return (sFilter.lower() in self.name.lower())
+
+    def Open(self):
+        return self.folderMovies
 
 def main():
     # new window
@@ -103,16 +150,24 @@ def main():
     MODE = Modes.NORMAL
     SORT = Sorts.ABC
     selected = 0
+    folderLevel = 0
     firstNameIndexOffset = 0
     searchText = ""
     HEADER = random.choice(HEADERS)
     NAMES_START_OFFSET = len(HEADER)+2
 
-    movies = []
+    MAIN_ITEMS = []
     for file in os.listdir(PROJECT_PATH+"/movieData/"):
-        movies.append(Movie(file))
-    movies = sorted(movies, key=lambda x: x.name) # ABC sort default
-    movies_drawlist = [movie for movie in movies if movie.searchFilter(searchText)]
+        if not(os.path.isdir(PROJECT_PATH+"/movieData/"+file)):
+            MAIN_ITEMS.append(Movie(file))
+
+    for folder in os.listdir(PROJECT_PATH+"/movieData/Series"):
+        MAIN_ITEMS.append(Folder(folder))
+
+    CURRENT_ITEMS = copy.deepcopy(MAIN_ITEMS)
+    CURRENT_ITEMS = sorted(CURRENT_ITEMS, key=lambda x: x.name) # ABC sort default
+
+    current_drawlist = [item for item in CURRENT_ITEMS if item.searchFilter(searchText)]
 
     # animation loop
     try:
@@ -163,19 +218,19 @@ def main():
 
                 NAMES_MAX_COUNT = rows - NAMES_START_OFFSET - 3
                 firstNameIndexOffset = max(0,
-                                           min((len(movies_drawlist)-1)-NAMES_MAX_COUNT,
+                                           min((len(current_drawlist)-1)-NAMES_MAX_COUNT,
                                                selected-NAMES_MAX_COUNT//2))
 
-                for idx in range(firstNameIndexOffset, len(movies_drawlist)):
+                for idx in range(firstNameIndexOffset, len(current_drawlist)):
 
-                    path       = movies_drawlist[idx].path
-                    name       = movies_drawlist[idx].name
-                    year       = movies_drawlist[idx].year
-                    resolution = movies_drawlist[idx].resolution
-                    languages  = movies_drawlist[idx].languages
-                    subtitles  = movies_drawlist[idx].subtitles
-                    duration   = movies_drawlist[idx].duration
-                    score      = movies_drawlist[idx].score
+                    path       = current_drawlist[idx].path
+                    name       = current_drawlist[idx].name
+                    year       = current_drawlist[idx].year
+                    resolution = current_drawlist[idx].resolution
+                    languages  = current_drawlist[idx].languages
+                    subtitles  = current_drawlist[idx].subtitles
+                    duration   = current_drawlist[idx].duration
+                    score      = current_drawlist[idx].score
 
                     xPos = 1
                     yPos = NAMES_START_OFFSET+idx-firstNameIndexOffset
@@ -186,9 +241,16 @@ def main():
                     if(idx-firstNameIndexOffset > NAMES_MAX_COUNT):
                         break
                     if(selected == idx):
+                        text = ""
+                        if(type(current_drawlist[idx]) == Folder):
+                            text = "  : {}".format(name)
+
+                        else:
+                            text = "{:3.0f}: {}".format(idx+1, name)
+
                         win.addstr(yPos, xPos,
-                                   "{:3.0f}: {}".format(idx+1, name),
-                                    C.color_pair(Colors.SELECTED)+C.A_BOLD)
+                                   text,
+                                   C.color_pair(Colors.SELECTED)+C.A_BOLD)
 
                         with c.lazy_drawing:
                             showImg.path = path
@@ -234,9 +296,18 @@ def main():
                                        C.color_pair(Colors.DEFAULT))
 
                     else:
+                        text = ""
+                        if(type(current_drawlist[idx]) == Folder):
+                            text = "  : {}".format(name)
+
+                        else:
+                            text = "{:3.0f}: {}".format(idx+1, name)
+
                         win.addstr(yPos, xPos,
-                                   "{:3.0f}: {}".format(idx+1, name),
+                                   text,
                                    C.color_pair(Colors.DEFAULT))
+
+
 
                 win.refresh()
 
@@ -249,31 +320,47 @@ def main():
                 if(MODE == Modes.NORMAL):
                     if(key == 'j'): #MOVE DOWN
                         selected += 1
-                        if(selected == len(movies_drawlist)):
-                            selected = len(movies_drawlist) - 1
+                        if(selected == len(current_drawlist)):
+                            selected = len(current_drawlist) - 1
                     elif(key == 'k'): #MOVE UP
                         selected -= 1
                         if(selected < 0): selected = 0
                     elif(key == '/'): #TO SEARCH MODE
                         MODE = Modes.SEARCH
                     elif(key == "G"): #TO LAST ITEM
-                        selected = len(movies_drawlist) - 1
+                        selected = len(current_drawlist) - 1
                     elif(key == "g"): #TO FIRST ITEM
                         selected = 0
                     elif(key == "S"): #CHANGE SORT
                         if(SORT == Sorts.ABC):
                             SORT = Sorts.SCORE
-                            movies_drawlist = sorted(movies_drawlist, key=lambda x: x.score, reverse=True) # ABC sort default
+                            current_drawlist = sorted(current_drawlist, key=lambda x: x.score, reverse=True) # ABC sort default
                         else:
                             SORT = Sorts.ABC
-                            movies_drawlist = sorted(movies_drawlist, key=lambda x: x.name) # ABC sort default
+                            current_drawlist = sorted(current_drawlist, key=lambda x: x.name) # ABC sort default
 
-                    elif(ord(key) == 10): #ENTER #PLAY
+                    elif(ord(key) == 10): #ENTER #PLAY/#OPEN
                         if(os.path.isdir(DISC_PATH)):
-                            path = movies_drawlist[selected].Play()
+                            if(type(current_drawlist[selected]) == Movie):
+                                current_drawlist[selected].Play()
+                            if(type(current_drawlist[selected]) == Folder):
+                                folderLevel += 1
+                                CURRENT_ITEMS = current_drawlist[selected].Open()
+                                CURRENT_ITEMS = sorted(CURRENT_ITEMS, key=lambda x: x.name) # ABC sort default
+                                searchText = ""
+                                selected = 0
+                                current_drawlist = [item for item in CURRENT_ITEMS if item.searchFilter(searchText)]
 
                     elif(key == "q" or key == "Q"): #QUIT 
-                        break
+                        if(folderLevel > 0): # IN FOLDER 
+                            folderLevel -= 1
+                            CURRENT_ITEMS = copy.deepcopy(MAIN_ITEMS)
+                            CURRENT_ITEMS = sorted(CURRENT_ITEMS, key=lambda x: x.name) # ABC sort default
+                            searchText = ""
+                            selected = 0
+                            current_drawlist = [item for item in CURRENT_ITEMS if item.searchFilter(searchText)]
+                        else:
+                            break
                     elif(key == "M" or key == "N"): #Open NAUTILUS FOR MOUNT
                         os.system("nautilus ~/")
                         win.clear()
@@ -289,16 +376,16 @@ def main():
                         searchText += " "
                     elif(ord(key) == 27): #ESCAPE
                         MODE = Modes.NORMAL
-                    elif(key in "1234567890&-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"):
+                    elif(key in "1234567890&-:abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"):
                         searchText += key
                         selected = 0
 
-                    movies_drawlist = [movie for movie in movies if movie.searchFilter(searchText)]
+                    current_drawlist = [movie for movie in CURRENT_ITEMS if movie.searchFilter(searchText)]
 
                     if(SORT == Sorts.ABC):
-                        movies_drawlist = sorted(movies_drawlist, key=lambda x: x.name) # ABC sort default
+                        current_drawlist = sorted(current_drawlist, key=lambda x: x.name) # ABC sort default
                     else:
-                        movies_drawlist = sorted(movies_drawlist, key=lambda x: x.score, reverse=True) # ABC sort default
+                        current_drawlist = sorted(current_drawlist, key=lambda x: x.score, reverse=True) # ABC sort default
 
     except KeyboardInterrupt:
         pass
