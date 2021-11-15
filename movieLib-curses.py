@@ -340,16 +340,15 @@ def main():
                             current_drawlist = sorted(current_drawlist, key=lambda x: x.name) # ABC sort default
 
                     elif(ord(key) == 10): #ENTER #PLAY/#OPEN
-                        if(os.path.isdir(DISC_PATH)):
-                            if(type(current_drawlist[selected]) == Movie):
-                                current_drawlist[selected].Play()
-                            if(type(current_drawlist[selected]) == Folder):
-                                folderLevel += 1
-                                CURRENT_ITEMS = current_drawlist[selected].Open()
-                                CURRENT_ITEMS = sorted(CURRENT_ITEMS, key=lambda x: x.name) # ABC sort default
-                                searchText = ""
-                                selected = 0
-                                current_drawlist = [item for item in CURRENT_ITEMS if item.searchFilter(searchText)]
+                        if(os.path.isdir(DISC_PATH) and type(current_drawlist[selected]) == Movie):
+                            current_drawlist[selected].Play()
+                        elif(type(current_drawlist[selected]) == Folder):
+                            folderLevel += 1
+                            CURRENT_ITEMS = current_drawlist[selected].Open()
+                            CURRENT_ITEMS = sorted(CURRENT_ITEMS, key=lambda x: x.name) # ABC sort default
+                            searchText = ""
+                            selected = 0
+                            current_drawlist = [item for item in CURRENT_ITEMS if item.searchFilter(searchText)]
 
                     elif(key == "q" or key == "Q"): #QUIT 
                         if(folderLevel > 0): # IN FOLDER 
