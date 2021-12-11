@@ -306,10 +306,11 @@ for item in tqdm.tqdm(range(len(allFiles))):
                 newName = input("New name: ")
                 readline.set_startup_hook()
                 if(series == ""):
-                    os.system("/bin/mv '{}/{}' '{}/{}'".format(diskPath,name,diskPath,newName))
+                    os.system("/bin/mv \"{}/{}\" \"{}/{}\"".format(diskPath,name,diskPath,newName))
                     allFiles[item] = newName
                 else:
-                    os.system("/bin/mv '{}/Series/{}/{}' '{}/Series/{}/{}'".format(diskPath,series,name,diskPath,series,newName))
+                    # print("/bin/mv \"{}/Series/{}/{}\" \"{}/Series/{}/{}\"".format(diskPath,series,name,diskPath,series,newName))
+                    os.system("/bin/mv \"{}/Series/{}/{}\" \"{}/Series/{}/{}\"".format(diskPath,series,name,diskPath,series,newName))
                     allFiles[item][1] = newName
 
             except KeyboardInterrupt:
