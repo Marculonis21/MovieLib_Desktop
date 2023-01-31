@@ -49,25 +49,21 @@ class Movie():
         if(inFolder):
             path = path.split('/')[-1]
 
-        name_string = path.split(";")[0]
         attr_string = path.split(";")[1]
+        attr_string = attr_string.split('@')[1:]
+        keys = ['Title','Year','Rating','Audio','Subt','Duration','Resolution']
+        attributes = dict(zip(keys, attr_string))
 
-        self.name = name_string[:-5]
-        if('_' in self.name):
+        self.name        = attributes['Title']
+        if('_' in self.name): 
             self.name = self.name.replace('_', ':')
 
-        self.year = name_string[-4:]
-
-        #<movieDataProjectPath>/<full origname;>@<score>@<audio>@<subt>@<duration>@<width>x<height>@.mlf
-        attr_string = attr_string.split('@')
-        if(attr_string[1] != ""):
-            self.score = float(attr_string[1])
-        else:
-            self.score = 0
-        self.languages = attr_string[2].split(", ")
-        self.subtitles = attr_string[3].split(", ")
-        self.duration = attr_string[4]
-        self.resolution = attr_string[5]
+        self.year        = attributes['Year']
+        self.score       = float(attributes['Rating'])
+        self.languages   = attributes['Audio'].split(", ")
+        self.subtitles   = attributes['Subt'].split(", ")
+        self.duration    = attributes['Duration']
+        self.resolution  = attributes['Resolution']
 
         if(len(self.languages) > 4):
             self.languages = self.languages[:4]

@@ -123,6 +123,7 @@ def getWebData(urlName, series):
     else:
         searchString = "https://www.imdb.com/find?q={}&s=tt&exact=true".format(urlName)
 
+    print(searchString)
     page = req.urlopen(searchString)
     soup = BS(page, 'html.parser')
 
@@ -176,7 +177,7 @@ def webScrape(fileName, series=False, seriesName=""):
         else:
             raise EOFError
 
-    if (series) and not (fileName[0] == '['):
+    if (series) and not (fileName[0] == '['): #]
         if(fileName != seriesName):
             raise EOFError
 
@@ -284,7 +285,8 @@ for s in parsedSN:
 series = ""
 name = ""
 #Scrape web with for pictures
-for item in tqdm.tqdm(range(len(allFiles))):
+for item in tqdm.tqdm(range(1)):
+# for item in tqdm.tqdm(range(len(allFiles))):
     while True:
         try:
             file = allFiles[item]
@@ -328,7 +330,7 @@ for item in tqdm.tqdm(range(len(allFiles))):
             print("NOT FOUND ERROR: {} -->> SKIPPED".format(allFiles[item]))
             logging.error("NOT FOUND - {}".format(allFiles[item]))
             break
-        except:
-            print("UNKNOWN ERROR: {} -->> SKIPPED".format(allFiles[item]))
-            logging.warning("UNKNOWN - {}".format(allFiles[item]))
-            break
+        # except:
+        #     print("UNKNOWN ERROR: {} -->> SKIPPED".format(allFiles[item]))
+        #     logging.warning("UNKNOWN - {}".format(allFiles[item]))
+            # break
