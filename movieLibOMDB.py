@@ -11,9 +11,8 @@ import tqdm
 programPath = "/home/marculonis/Desktop/Projects/Python/MovieLib_Desktop"
 diskPath = "/media/marculonis/My Passport/Filmy/"
 
-
 known_data_files = utility.findKnownFiles(programPath+"/movieData/")
-print(known_data_files)
+# print(known_data_files)
 
 PATH_movie_data = programPath+"/movieData/"
 PATH_movie_data_series = PATH_movie_data+"Series/"
@@ -122,7 +121,6 @@ except FileNotFoundError:
 REQUEST_MOVIE   = "http://www.omdbapi.com/?apikey=420bc901&t={}&y={}&type=movie"
 REQUEST_SERIE   = "http://www.omdbapi.com/?apikey=420bc901&t={}&y={}&type=series"
 REQUEST_EPISODE = "http://www.omdbapi.com/?apikey=420bc901&t={}&Season={}&Episode={}&type=episode"
-
 # path = "{}/movieData/{}@{}@{}@{}@{}@{}x{}@.mlf".format(programPath,
 #                                                         fileName,
 #                                                         score,
@@ -132,8 +130,8 @@ REQUEST_EPISODE = "http://www.omdbapi.com/?apikey=420bc901&t={}&Season={}&Episod
 #                                                         width,
 #                                                         height)
 
-# for i in tqdm.tqdm(range(len(movies))):
-for i in tqdm.tqdm(range(1)):
+# for i in tqdm.tqdm(range(1)):
+for i in tqdm.tqdm(range(len(movies))):
     movie_path = movies[i][0]
 
     # skip known

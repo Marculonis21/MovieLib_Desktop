@@ -3,7 +3,9 @@
 import curses as C
 from enum import Enum
 from enum import IntEnum
+from http.client import ImproperConnectionState
 import os
+from os.path import isdir
 import random
 import sys
 import copy
@@ -13,11 +15,14 @@ import ueberzug.lib.v0 as ueberzug
 
 PROJECT_PATH = "/home/marculonis/Desktop/Projects/Python/MovieLib_Desktop"
 DISC_PATH = "/media/marculonis/My Passport/Filmy"
+
+local_movies = [x for x in os.listdir(PROJECT_PATH+"/localMovies/")]
+
 if(len(sys.argv) > 1):
     if (sys.argv[1] == "--reset"):
         os.system("rm -rf "+PROJECT_PATH+"/movieData/*")
 
-os.system("python3 "+PROJECT_PATH+"/movieLibScrape.py")
+os.system("python3 "+PROJECT_PATH+"/movieLibOMDB.py")
 
 NAMES_START_OFFSET = 8
 NAMES_MAX_COUNT = 40
@@ -42,16 +47,18 @@ class Sorts(Enum):
     SCORE = 2
 
 class Movie():
-    def __init__(self, path, inFolder=False):
+    def __init__(self, path, episode=False):
         self.path = PROJECT_PATH+"/movieData/"+path
 
         self.discPath = path.split('@')[0]
-        if(inFolder):
-            path = path.split('/')[-1]
+        # attr_string = path.split(";")[1]
+        attr_string = path.split('@')[1:]
 
-        attr_string = path.split(";")[1]
-        attr_string = attr_string.split('@')[1:]
-        keys = ['Title','Year','Rating','Audio','Subt','Duration','Resolution']
+        if episode:
+            keys = ['Title','Season','Episode','Year','Rating', 'Audio','Subt','Duration','Resolution']
+        else:
+            keys = ['Title','Year','Rating','Audio','Subt','Duration','Resolution']
+
         attributes = dict(zip(keys, attr_string))
 
         self.name        = attributes['Title']
@@ -65,6 +72,20 @@ class Movie():
         self.duration    = attributes['Duration']
         self.resolution  = attributes['Resolution']
 
+        # overwrite for series files
+        if episode:
+            parts = path.split('/')[:2] + [attributes['Season']] + [path.split('/',3)[2].split('@')[0]]
+            self.discPath = '/'.join(parts)
+
+            self.season = int(attributes['Season'])
+            self.episode = int(attributes['Episode'])
+
+            self.name = "[S{:02d}E{:02d}] ".format(self.season, self.episode) + self.name
+
+        # locally stored movies and episodes
+        self.isLocal = self.discPath.split('/')[-1] in local_movies
+        if self.isLocal: self.localPath = PROJECT_PATH+"/localMovies/"+self.discPath.split('/')[-1]
+
         if(len(self.languages) > 4):
             self.languages = self.languages[:4]
             self.languages.append("(...)")
@@ -73,42 +94,68 @@ class Movie():
             self.subtitles = self.subtitles[:4]
             self.subtitles.append("...")
 
+    def toggleLocal(self):
+        if self.isLocal:
+            self.isLocal = False
+            os.system('rm "{}"'.format(self.localPath))
+            self.localPath = None
+        else:
+            self.isLocal = True
+            self.localPath = PROJECT_PATH+"/localMovies/"+self.discPath.split('/')[-1]
+            os.system('cp "{}/{}" "{}"'.format(DISC_PATH,self.discPath, self.localPath))
+
     def searchFilter(self, sFilter):
         return (sFilter.lower() in self.name.lower())
 
     def Play(self):
-        os.system('/usr/bin/vlc -fd "{}/{}"'.format(DISC_PATH,self.discPath))
+        if self.isLocal:
+            os.system('/usr/bin/vlc -fd "{}"'.format(self.localPath))
+        else:
+            os.system('/usr/bin/vlc -fd "{}/{}"'.format(DISC_PATH,self.discPath))
 
 class Folder():
-    def __init__(self, path):
-        self.path = PROJECT_PATH+"/movieData/Series/"+path
+    def __init__(self, serie_header):
+        series_path = PROJECT_PATH+"/movieData/Series/"+serie_header
+        if not os.path.isdir(series_path): return
 
-        self.name = path[:-5]
-        if('_' in self.name):
-            self.name = self.name.replace('_', ':')
+        seasons = []
 
-        self.year = path[-4:]
+        for item in os.listdir(series_path):
+            seasons.append(item)
 
-        folderFiles = os.listdir()
+        self.path = series_path
+
+        self.name = serie_header[:-5]
+        # if('_' in self.name):
+        #     self.name = self.name.replace('_', ':')
+        # self.year = serie_header[-4:]
+
         self.folderMovies = []
+
         self.attr_file = ""
         for file in os.listdir(self.path):
-            if('[' in file):
-                self.folderMovies.append(Movie("Series/{} {}/{}".format(self.name, self.year, file), True))
-            else:
+            if file.split('@')[0] == serie_header:
                 self.attr_file = file
+            else:
+                self.folderMovies.append(Movie("Series/{}/{}".format(serie_header, file), episode=True))
 
-        if(self.attr_file != ""):
-            self.path = self.path+"/"+self.attr_file # PATH IS USED FOR IMG
-            attr_string = self.attr_file.split(";")[1].split('@')
-            self.score = float(attr_string[1])
+        self.path = self.path+"/"+self.attr_file # PATH IS USED FOR IMG
 
-        self.languages = ""
-        self.subtitles = ""
-        self.duration = ""
+        attr_string = self.attr_file.split('@')
+
+        keys = ['Head','Title','Year','Rating','Seasons']
+        attributes = dict(zip(keys, attr_string))
+
+        self.score = float(attributes['Rating'])
+        self.year    = attributes['Year']
+        self.seasons = int(attributes['Seasons'])
+
+        self.languages  = ""
+        self.subtitles  = ""
+        self.duration   = ""
         self.resolution = ""
-        self.languages = ""
-        self.subtitles = ""
+        self.languages  = ""
+        self.subtitles  = ""
 
     def searchFilter(self, sFilter):
         return (sFilter.lower() in self.name.lower())
@@ -134,7 +181,7 @@ def main():
     C.init_pair(Colors.NOTIFICATION_GOOD, C.COLOR_WHITE, C.COLOR_BLACK)
     C.init_pair(Colors.NOTIFICATION_BAD, C.COLOR_RED, C.COLOR_BLACK)
 
-    # hiding typing and cursor
+    # # hiding typing and cursor
     C.noecho()
     C.curs_set(0)
 
@@ -165,6 +212,11 @@ def main():
 
     current_drawlist = [item for item in CURRENT_ITEMS if item.searchFilter(searchText)]
 
+    ICONS = {"VLINE":"▍",
+             "DISK":"ﳜ",
+             "DOWNLOADED":"",
+             "FOLDER":""}
+
     # animation loop
     try:
         with ueberzug.Canvas() as c:
@@ -189,7 +241,7 @@ def main():
                     NAMES_START_OFFSET = len(HEADER)+2
 
                 for i in range(NAMES_START_OFFSET, rows-2):
-                    win.addstr(i, PICS_LINE, "▍", C.color_pair(Colors.DEFAULT))
+                    win.addstr(i, PICS_LINE, ICONS["VLINE"], C.color_pair(Colors.DEFAULT))
 
                 win.addstr(rows-1, 1, " "*(cols-2), C.color_pair(Colors.DOWNBAR) + C.A_DIM)
                 if (MODE == Modes.NORMAL):
@@ -206,9 +258,9 @@ def main():
 
 
                 if(os.path.isdir(DISC_PATH)):
-                    win.addstr(rows-1, cols-10, "ﳜ", C.color_pair(Colors.NOTIFICATION_GOOD)+C.A_BOLD)
+                    win.addstr(rows-1, cols-10, ICONS["DISK"], C.color_pair(Colors.NOTIFICATION_GOOD)+C.A_BOLD)
                 else:
-                    win.addstr(rows-1, cols-10, "ﳜ", C.color_pair(Colors.NOTIFICATION_BAD)+C.A_BOLD)
+                    win.addstr(rows-1, cols-10, ICONS["DISK"], C.color_pair(Colors.NOTIFICATION_BAD)+C.A_BOLD)
                 ################################################################ NAMES
 
 
@@ -228,6 +280,10 @@ def main():
                     duration   = current_drawlist[idx].duration
                     score      = current_drawlist[idx].score
 
+                    isLocal = False
+                    if(type(current_drawlist[idx]) == Movie):
+                        isLocal = current_drawlist[idx].isLocal
+
                     xPos = 1
                     yPos = NAMES_START_OFFSET+idx-firstNameIndexOffset
 
@@ -236,13 +292,16 @@ def main():
 
                     if(idx-firstNameIndexOffset > NAMES_MAX_COUNT):
                         break
+
                     if(selected == idx):
                         text = ""
                         if(type(current_drawlist[idx]) == Folder):
-                            text = "  : {}".format(name)
-
+                            text = " {} : {}".format(ICONS["FOLDER"],name)
                         else:
-                            text = "{:3.0f}: {}".format(idx+1, name)
+                            if isLocal:
+                                text = " {} : {}".format(ICONS["DOWNLOADED"], name)
+                            else:
+                                text = "{:3.0f}: {}".format(idx+1, name)
 
                         win.addstr(yPos, xPos,
                                    text,
@@ -262,47 +321,63 @@ def main():
                         win.addstr(ATTRIB_OFFSET+1, PICS_LINE + 2,
                                    "Score: {}".format(score),
                                     C.color_pair(Colors.DEFAULT))
-                        win.addstr(ATTRIB_OFFSET+2, PICS_LINE + 2,
-                                   "Resolution: {}".format(resolution),
+                        if not (type(current_drawlist[idx]) == Folder):
+                            win.addstr(ATTRIB_OFFSET+2, PICS_LINE + 2,
+                                    "Resolution: {}".format(resolution),
+                                        C.color_pair(Colors.DEFAULT))
+                            win.addstr(ATTRIB_OFFSET+3, PICS_LINE + 2,
+                                    "Duration: {}".format(duration),
+                                        C.color_pair(Colors.DEFAULT))
+                        
+                            yOffset = 0
+                            win.addstr(ATTRIB_OFFSET+4, PICS_LINE + 2,
+                                    "Languages:",
                                     C.color_pair(Colors.DEFAULT))
-                        win.addstr(ATTRIB_OFFSET+3, PICS_LINE + 2,
-                                   "Duration: {}".format(duration),
+                            for lang in range(len(languages)):
+                                if(ATTRIB_OFFSET+4+lang >= rows - 2):
+                                    break
+                                win.addstr(ATTRIB_OFFSET+4+lang, PICS_LINE + 13,
+                                        "{}".format(languages[lang]),
+                                        C.color_pair(Colors.DEFAULT))
+                                yOffset += 1
+
+                            win.addstr(ATTRIB_OFFSET+4+yOffset, PICS_LINE + 2,
+                                    "Subtitles:",
                                     C.color_pair(Colors.DEFAULT))
-
-                        yOffset = 0
-                        win.addstr(ATTRIB_OFFSET+4, PICS_LINE + 2,
-                                   "Languages:",
-                                   C.color_pair(Colors.DEFAULT))
-                        for lang in range(len(languages)):
-                            if(ATTRIB_OFFSET+4+lang >= rows - 2):
-                                break
-                            win.addstr(ATTRIB_OFFSET+4+lang, PICS_LINE + 13,
-                                       "{}".format(languages[lang]),
-                                       C.color_pair(Colors.DEFAULT))
-                            yOffset += 1
-
-                        win.addstr(ATTRIB_OFFSET+4+yOffset, PICS_LINE + 2,
-                                   "Subtitles:",
-                                   C.color_pair(Colors.DEFAULT))
-                        for sub in range(len(subtitles)):
-                            if(ATTRIB_OFFSET+4+yOffset+sub >= rows - 2):
-                                break
-                            win.addstr(ATTRIB_OFFSET+4+yOffset+sub, PICS_LINE + 13,
-                                       "{}".format(subtitles[sub]),
-                                       C.color_pair(Colors.DEFAULT))
+                            for sub in range(len(subtitles)):
+                                if(ATTRIB_OFFSET+4+yOffset+sub >= rows - 2):
+                                    break
+                                win.addstr(ATTRIB_OFFSET+4+yOffset+sub, PICS_LINE + 13,
+                                        "{}".format(subtitles[sub]),
+                                        C.color_pair(Colors.DEFAULT))
+                        else:
+                            win.addstr(ATTRIB_OFFSET+2, PICS_LINE + 2,
+                                    "Season count: {}".format(current_drawlist[idx].seasons),
+                                        C.color_pair(Colors.DEFAULT))
 
                     else:
                         text = ""
                         if(type(current_drawlist[idx]) == Folder):
-                            text = "  : {}".format(name)
+                            text = " {} : {}".format(ICONS["FOLDER"], name)
 
                         else:
-                            text = "{:3.0f}: {}".format(idx+1, name)
+                            if isLocal:
+                                text = " {} : {}".format(ICONS["DOWNLOADED"], name)
+                            else:
+                                text = "{:3.0f}: {}".format(idx+1, name)
 
                         win.addstr(yPos, xPos,
                                    text,
                                    C.color_pair(Colors.DEFAULT))
 
+                        if '[' in text: #]
+                            win.addstr(yPos, xPos,
+                                       text[:3],
+                                       C.color_pair(Colors.DEFAULT))
+                            win.addstr(text[3:13],
+                                       C.color_pair(Colors.DEFAULT)+C.A_DIM)
+                            win.addstr(text[13:],
+                                       C.color_pair(Colors.DEFAULT))
 
 
                 win.refresh()
@@ -336,7 +411,8 @@ def main():
                             current_drawlist = sorted(current_drawlist, key=lambda x: x.name) # ABC sort default
 
                     elif(ord(key) == 10): #ENTER #PLAY/#OPEN
-                        if(os.path.isdir(DISC_PATH) and type(current_drawlist[selected]) == Movie):
+                        if(type(current_drawlist[selected]) == Movie and 
+                          (os.path.isdir(DISC_PATH) or current_drawlist[selected].isLocal)):
                             current_drawlist[selected].Play()
                         elif(type(current_drawlist[selected]) == Folder):
                             folderLevel += 1
@@ -345,6 +421,10 @@ def main():
                             searchText = ""
                             selected = 0
                             current_drawlist = [item for item in CURRENT_ITEMS if item.searchFilter(searchText)]
+
+                    elif(key == "P"):
+                        if(type(current_drawlist[selected]) == Movie):
+                            current_drawlist[selected].toggleLocal()
 
                     elif(key == "q" or key == "Q"): #QUIT 
                         if(folderLevel > 0): # IN FOLDER 

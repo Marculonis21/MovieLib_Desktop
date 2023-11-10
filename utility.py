@@ -25,8 +25,6 @@ def findKnownFiles(data_dir):
                 known_data_files.append(file.split('@',1)[0]);
                 known_data_files.append(file.split('@',2)[1]);
 
-
-
     return list(set(known_data_files))
 
 def findFiles(dir, group=[], expand=True):
